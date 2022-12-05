@@ -1,6 +1,6 @@
 from flask import Flask
 from controllers.controller import session
-from automata.testing import test
+from example import run_machine
 
 app = Flask(__name__)
 app.register_blueprint(session)
@@ -12,5 +12,5 @@ def hello_name():
     return "Server is healthy!"
  
 if __name__ == '__main__':
-    test()
+    run_machine()
     # app.run()

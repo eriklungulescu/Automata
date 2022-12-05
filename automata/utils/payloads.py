@@ -3,7 +3,7 @@ class StateChangePayload(object):
         self.state = state 
         self.events = events
 
-class RequestEventPayload:
+class EventPayload:
     def __init__(self, event: str, data: str):
         self.event = event 
         self.data = data

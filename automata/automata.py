@@ -41,6 +41,11 @@ class State:
             self._events[eventName] = Event(eventName, func)
         return decorator
 
+"""
+    We need a wrapper that maintains every websocket connection and their running handlers
+
+"""
+
 class Automata:
     def __init__(self, name: str, initial: State = None, states: list[State] = []):
         self.name = name
@@ -71,34 +76,51 @@ class Automata:
             await self._states[self._current_state.name]._events[event_name]._process_and_handle(self, data)
 
     # Websocket Functions
-    def serve(self, uri: str, port: int, path: str):
-        print(f'Running websocket client on: {uri}:{port}{path}')
-        self.path = path
-
-        async def serve_server():
-            async with websockets.serve(self._receive, uri, port):
-                await asyncio.Future() # Runs forever
-        asyncio.run(serve_server())
+    def _register_websocket(self, websocket):
+        self._websocket = websocket
         
 
-    async def _receive(self, websocket, path):
-        print(websocket.id)
-
-        if (path != self.path):
-            print(f"Request at {path} doesn't match defined path {self.path}")
-            return
-        automata = deepcopy(self)
-        automata.websocket = websocket
+    async def _receive(self):
+        print(self._websocket.id)
 
         try:
-            async for message in websocket:
-                await automata.handler(message)
+            async for message in self._websocket:
+                await self.handler(message)
         except:
             print('Connection closed') # TODO: add connection closed handler
     
     async def _send(self, data: str):
-        await self.websocket.send(data)
+        await self._websocket.send(data)
 
+    def run(self, uri: str, port: int, path: str):
+        clientPoolHandler = AutomataClientConnectionPoolHandler(self)
+        clientPoolHandler._serve(uri, port, path)
+
+
+class AutomataClientConnectionPoolHandler:
+
+    def __init__(self, automata: Automata):
+        self._AUTOMATA_IMAGE = automata
+        self._connection_pool = {}
+    
+    def _serve(self, uri: str, port: int, path: str):
+        print(f'Running websocket client on: {uri}:{port}{path}')
+        self._path = path
+
+        async def serve_server():
+            async with websockets.serve(self._manage_client_connections, uri, port):
+                await asyncio.Future() # Runs forever
+        asyncio.run(serve_server())
+    
+    async def _manage_client_connections(self, websocket, path):
+        if (path != self._path):
+            print(f"Request at {path} doesn't match defined path {self.path}")
+            return
+        
+        automata = deepcopy(self._AUTOMATA_IMAGE)
+        automata._register_websocket(websocket)
+        await automata._receive()
+        
 
 
 # Library Functions
@@ -113,8 +135,7 @@ async def transition(automata: Automata, nextState: str):
         raise "Illegal State Transition!"
     # Todo: implement transmission of new state and possible events back
 
-
-
 async def transmit(automata: Automata, data: any):
     jsonPayload = json.dumps(data.__dict__)
     await automata._send(jsonPayload)
+

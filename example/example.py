@@ -9,5 +9,5 @@ my_machine.register_state(logged_out)
 my_machine.register_state(logged_in)
 
 def run_machine():
-    my_machine.serve('localhost', 8080, '/session')
+    my_machine.run('localhost', 8080, '/session')
 

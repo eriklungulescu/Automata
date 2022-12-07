@@ -1,6 +1,7 @@
 from collections.abc import Callable
-from typing import Generic, Mapping, TypeVar
+from typing import  Mapping
 from types import SimpleNamespace
+from uuid import UUID
 from .utils.payloads import EventPayload, StateChangePayload
 from .utils.errors import DuplicateEventError, DuplicateStateError, InvalidEventPayload
 import json
@@ -8,14 +9,13 @@ import asyncio
 import websockets
 from copy import deepcopy
 import inspect
-from _thread import start_new_thread
+from urllib.parse import urlsplit, parse_qs
 
 class Automata:
     pass
 
-T = TypeVar("T")
-class Event(Generic[T]):
-    def __init__(self, name: str, handler: Callable[[Automata, T], None]):
+class Event:
+    def __init__(self, name: str, handler: Callable[[Automata, any], None]):
         self.name = name
         self._handler = handler
 
@@ -41,10 +41,6 @@ class State:
             self._events[eventName] = Event(eventName, func)
         return decorator
 
-"""
-    We need a wrapper that maintains every websocket connection and their running handlers
-
-"""
 
 class Automata:
     def __init__(self, name: str, initial: State = None, states: list[State] = []):
@@ -101,11 +97,13 @@ class AutomataClientConnectionPoolHandler:
 
     def __init__(self, automata: Automata):
         self._AUTOMATA_IMAGE = automata
-        self._connection_pool = {}
+        self._connection_pool: dict[str, dict[UUID, Automata]] = {}
     
     def _serve(self, uri: str, port: int, path: str):
         print(f'Running websocket client on: {uri}:{port}{path}')
         self._path = path
+        self._uri = uri 
+        self._port = port
 
         async def serve_server():
             async with websockets.serve(self._manage_client_connections, uri, port):
@@ -113,14 +111,45 @@ class AutomataClientConnectionPoolHandler:
         asyncio.run(serve_server())
     
     async def _manage_client_connections(self, websocket, path):
-        if (path != self._path):
-            print(f"Request at {path} doesn't match defined path {self.path}")
+        params = self._parse_path_params(path)
+        if (path != self._path and False): # TODO: add path checker...
+            print(f"Request at {path} doesn't match defined path {self._path}")
             return
-        
         automata = deepcopy(self._AUTOMATA_IMAGE)
         automata._register_websocket(websocket)
-        await automata._receive()
-        
+
+        if "group_id" in params.keys():
+            groups = params['group_id']
+            for group in groups:
+                if group not in self._connection_pool.keys():
+                    self._connection_pool[group] = { websocket.id : automata }
+                else:
+                    self._connection_pool[group][websocket.id] = automata 
+
+        print(self._connection_pool[params['group_id'][0]].keys())
+
+        try:
+            async for message in websocket:
+                await automata.handler(message)
+        except:
+            print(f'Closing websocket connection {websocket.id}')
+            if "group_id" in params.keys():
+                groups = params['group_id']
+                for group in groups:
+                    del self._connection_pool[group][websocket.id]
+                    if len(self._connection_pool[group]) == 0:
+                        del self._connection_pool[group]
+            print(len(self._connection_pool.keys()))
+    
+    def _parse_path_params(self, path: str) -> dict[str, any]:
+        params = {}
+        try:
+            url = self._uri + ':' + str(self._port) + path
+            params = parse_qs(urlsplit(url).query)
+        except:
+            print("Couldn't parse url params.")
+        finally:
+            return params
 
 
 # Library Functions

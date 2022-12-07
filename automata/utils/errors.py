@@ -38,3 +38,14 @@ class InvalidEventPayload(Exception):
 
     def __str__(self):
         return f"Event {self._event} has no handler defined for the state {self._state}"
+
+
+# Automata Errors
+
+class InvalidStateTransition:
+    def __init__(self, state: str, target: str):
+        self._state = state
+        self._target = target 
+
+    def __str__(self):
+        return f"Tried an invalid state transition from {self._state} to {self._target}"

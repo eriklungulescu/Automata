@@ -3,13 +3,15 @@ from typing import  Mapping
 from types import SimpleNamespace
 from uuid import UUID
 from .utils.payloads import EventPayload, StateChangePayload
-from .utils.errors import DuplicateEventError, DuplicateStateError, InvalidEventPayload
+from .utils.errors import DuplicateEventError, DuplicateStateError, InvalidEventPayload, InvalidStateTransition
+from urllib.parse import urlsplit, parse_qs
+from copy import deepcopy
 import json
 import asyncio
 import websockets
-from copy import deepcopy
 import inspect
-from urllib.parse import urlsplit, parse_qs
+import logging
+import traceback
 
 class Automata:
     pass
@@ -32,6 +34,7 @@ class State:
         for event in events:
             self._events[event.name] = event
         self._targets = targets
+        self._logger = logging.getLogger(__name__)
 
     def event(self, eventName: str):
         if eventName in self._events.keys():
@@ -49,6 +52,8 @@ class Automata:
         self._states: Mapping[str, State] = {}
         for state in states:
             self._states[state.name] = state
+        self._logger = logging.getLogger(__name__)
+
 
     def register_state(self, state: State):
         if state.name in self._states:
@@ -74,21 +79,12 @@ class Automata:
     # Websocket Functions
     def _register_websocket(self, websocket):
         self._websocket = websocket
-        
-
-    async def _receive(self):
-        print(self._websocket.id)
-
-        try:
-            async for message in self._websocket:
-                await self.handler(message)
-        except:
-            print('Connection closed') # TODO: add connection closed handler
-    
+            
     async def _send(self, data: str):
         await self._websocket.send(data)
 
     def run(self, uri: str, port: int, path: str):
+        self._logger.info(f'Starting Automata Websocket server on {uri}:{port}{path}')
         clientPoolHandler = AutomataClientConnectionPoolHandler(self)
         clientPoolHandler._serve(uri, port, path)
 
@@ -98,9 +94,10 @@ class AutomataClientConnectionPoolHandler:
     def __init__(self, automata: Automata):
         self._AUTOMATA_IMAGE = automata
         self._connection_pool: dict[str, dict[UUID, Automata]] = {}
+        self._logger = logging.getLogger(__name__)
+        self._num_connections = 0
     
     def _serve(self, uri: str, port: int, path: str):
-        print(f'Running websocket client on: {uri}:{port}{path}')
         self._path = path
         self._uri = uri 
         self._port = port
@@ -111,6 +108,9 @@ class AutomataClientConnectionPoolHandler:
         asyncio.run(serve_server())
     
     async def _manage_client_connections(self, websocket, path):
+        self._num_connections += 1
+        self._logger.debug(f'New connection {websocket.id} -> there are {self._num_connections} active connections')
+
         params = self._parse_path_params(path)
         if (path != self._path and False): # TODO: add path checker...
             print(f"Request at {path} doesn't match defined path {self._path}")
@@ -126,20 +126,23 @@ class AutomataClientConnectionPoolHandler:
                 else:
                     self._connection_pool[group][websocket.id] = automata 
 
-        print(self._connection_pool[params['group_id'][0]].keys())
 
         try:
             async for message in websocket:
                 await automata.handler(message)
+        except websockets.exceptions.ConnectionClosed:
+            self._logger.debug(f'Safely closed websocket connection {websocket.id} ')
         except:
-            print(f'Closing websocket connection {websocket.id}')
+            self._logger.error(f'Something went wrong! Forcefully closing websocket connection {websocket.id}')
+            self._logger.error(traceback.format_exc())
+        finally:
+            self._num_connections -= 1
             if "group_id" in params.keys():
                 groups = params['group_id']
                 for group in groups:
                     del self._connection_pool[group][websocket.id]
                     if len(self._connection_pool[group]) == 0:
                         del self._connection_pool[group]
-            print(len(self._connection_pool.keys()))
     
     def _parse_path_params(self, path: str) -> dict[str, any]:
         params = {}
@@ -147,7 +150,7 @@ class AutomataClientConnectionPoolHandler:
             url = self._uri + ':' + str(self._port) + path
             params = parse_qs(urlsplit(url).query)
         except:
-            print("Couldn't parse url params.")
+            self._logger.error("Couldn't parse url params.")
         finally:
             return params
 
@@ -155,14 +158,13 @@ class AutomataClientConnectionPoolHandler:
 # Library Functions
 
 # Will transition to a new state
-async def transition(automata: Automata, nextState: str):
-    if automata._states[automata._current_state.name]._targets == None or nextState in automata._states[automata._current_state.name]._targets:
-        automata._current_state = automata._states[nextState]
+async def transition(automata: Automata, target: str):
+    if automata._states[automata._current_state.name]._targets == None or target in automata._states[automata._current_state.name]._targets:
+        automata._current_state = automata._states[target]
         payload = StateChangePayload(automata._current_state.name , list(automata._states[automata._current_state.name]._events.keys()))
         await transmit(automata, payload)
     else:
-        raise "Illegal State Transition!"
-    # Todo: implement transmission of new state and possible events back
+        raise InvalidStateTransition(automata._current_state, target)
 
 async def transmit(automata: Automata, data: any):
     jsonPayload = json.dumps(data.__dict__)

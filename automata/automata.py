@@ -1,6 +1,7 @@
 from collections.abc import Callable
-from typing import Generic, Mapping, TypeVar
+from typing import  Mapping
 from types import SimpleNamespace
+from uuid import UUID
 from .utils.payloads import EventPayload, StateChangePayload
 from .utils.errors import DuplicateEventError, DuplicateStateError, InvalidEventPayload
 import json
@@ -8,14 +9,13 @@ import asyncio
 import websockets
 from copy import deepcopy
 import inspect
-from _thread import start_new_thread
+from urllib.parse import urlsplit, parse_qs
 
 class Automata:
     pass
 
-T = TypeVar("T")
-class Event(Generic[T]):
-    def __init__(self, name: str, handler: Callable[[Automata, T], None]):
+class Event:
+    def __init__(self, name: str, handler: Callable[[Automata, any], None]):
         self.name = name
         self._handler = handler
 
@@ -40,6 +40,7 @@ class State:
         def decorator(func):
             self._events[eventName] = Event(eventName, func)
         return decorator
+
 
 class Automata:
     def __init__(self, name: str, initial: State = None, states: list[State] = []):
@@ -71,34 +72,84 @@ class Automata:
             await self._states[self._current_state.name]._events[event_name]._process_and_handle(self, data)
 
     # Websocket Functions
-    def serve(self, uri: str, port: int, path: str):
-        print(f'Running websocket client on: {uri}:{port}{path}')
-        self.path = path
-
-        async def serve_server():
-            async with websockets.serve(self._receive, uri, port):
-                await asyncio.Future() # Runs forever
-        asyncio.run(serve_server())
+    def _register_websocket(self, websocket):
+        self._websocket = websocket
         
 
-    async def _receive(self, websocket, path):
-        print(websocket.id)
+    async def _receive(self):
+        print(self._websocket.id)
 
-        if (path != self.path):
-            print(f"Request at {path} doesn't match defined path {self.path}")
+        try:
+            async for message in self._websocket:
+                await self.handler(message)
+        except:
+            print('Connection closed') # TODO: add connection closed handler
+    
+    async def _send(self, data: str):
+        await self._websocket.send(data)
+
+    def run(self, uri: str, port: int, path: str):
+        clientPoolHandler = AutomataClientConnectionPoolHandler(self)
+        clientPoolHandler._serve(uri, port, path)
+
+
+class AutomataClientConnectionPoolHandler:
+
+    def __init__(self, automata: Automata):
+        self._AUTOMATA_IMAGE = automata
+        self._connection_pool: dict[str, dict[UUID, Automata]] = {}
+    
+    def _serve(self, uri: str, port: int, path: str):
+        print(f'Running websocket client on: {uri}:{port}{path}')
+        self._path = path
+        self._uri = uri 
+        self._port = port
+
+        async def serve_server():
+            async with websockets.serve(self._manage_client_connections, uri, port):
+                await asyncio.Future() # Runs forever
+        asyncio.run(serve_server())
+    
+    async def _manage_client_connections(self, websocket, path):
+        params = self._parse_path_params(path)
+        if (path != self._path and False): # TODO: add path checker...
+            print(f"Request at {path} doesn't match defined path {self._path}")
             return
-        automata = deepcopy(self)
-        automata.websocket = websocket
+        automata = deepcopy(self._AUTOMATA_IMAGE)
+        automata._register_websocket(websocket)
+
+        if "group_id" in params.keys():
+            groups = params['group_id']
+            for group in groups:
+                if group not in self._connection_pool.keys():
+                    self._connection_pool[group] = { websocket.id : automata }
+                else:
+                    self._connection_pool[group][websocket.id] = automata 
+
+        print(self._connection_pool[params['group_id'][0]].keys())
 
         try:
             async for message in websocket:
                 await automata.handler(message)
         except:
-            print('Connection closed') # TODO: add connection closed handler
+            print(f'Closing websocket connection {websocket.id}')
+            if "group_id" in params.keys():
+                groups = params['group_id']
+                for group in groups:
+                    del self._connection_pool[group][websocket.id]
+                    if len(self._connection_pool[group]) == 0:
+                        del self._connection_pool[group]
+            print(len(self._connection_pool.keys()))
     
-    async def _send(self, data: str):
-        await self.websocket.send(data)
-
+    def _parse_path_params(self, path: str) -> dict[str, any]:
+        params = {}
+        try:
+            url = self._uri + ':' + str(self._port) + path
+            params = parse_qs(urlsplit(url).query)
+        except:
+            print("Couldn't parse url params.")
+        finally:
+            return params
 
 
 # Library Functions
@@ -113,8 +164,7 @@ async def transition(automata: Automata, nextState: str):
         raise "Illegal State Transition!"
     # Todo: implement transmission of new state and possible events back
 
-
-
 async def transmit(automata: Automata, data: any):
     jsonPayload = json.dumps(data.__dict__)
     await automata._send(jsonPayload)
+

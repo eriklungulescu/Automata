@@ -2,7 +2,7 @@ from automata import Automata
 from .states import logged_out, logged_in
 
 my_machine = Automata(
-    name="myMachine"
+    name="myMachine",
 )
 
 my_machine.register_state(logged_out)

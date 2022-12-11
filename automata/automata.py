@@ -1,9 +1,8 @@
 from collections.abc import Callable
 from typing import  Mapping
-from types import SimpleNamespace
 from uuid import UUID
-from .utils.payloads import EventPayload, StateChangePayload
-from .utils.errors import DuplicateEventError, DuplicateStateError, InvalidEventPayload, InvalidStateTransition
+from .utils.payloads import EventPayload, DataPayload, StateChangePayload, EventStatus
+from .utils.errors import DuplicateEventError, DuplicateStateError, InvalidStateTransition
 from urllib.parse import urlsplit, parse_qs
 from copy import deepcopy
 import json
@@ -63,18 +62,25 @@ class Automata:
             self._current_state = state
         self._states[state.name] = state
 
-    async def handler(self, event: EventPayload | str): # TODO: Add input error checking
-        data = event
-        if (isinstance(data, str)):
-            data: EventPayload  = json.loads(event, object_hook=lambda d: SimpleNamespace(**d))
-        
-        await self._handler(data.event, data.data)
+    async def handler(self, event: str): # TODO: Add input error checking
+        try:
+            data = json.loads(event)
+            await self._handler(data["event"], data["data"])
+        except:
+            self._logger.error(f'Invalid data payload for websocket connection {self._websocket.id}: {event}')
+            error = DataPayload(EventStatus.InvalidPayload)
+            await self._send(json.dumps(error.__dict__))
+    
+    async def internal_handler(self, event: EventPayload, group_id: str):
+        pass
 
     async def _handler(self, event_name: str, data: str = None):
-        if event_name not in self._states[self._current_state.name]._events.keys():
-            raise InvalidEventPayload(self._current_state.name, event_name)
-        else:
+        try: 
             await self._states[self._current_state.name]._events[event_name]._process_and_handle(self, data)
+        except:
+            self._logger.error(f'Event {event_name} does not exist for websocket connection {self._websocket.id}')
+            error = DataPayload(EventStatus.InvalidEvent)
+            await self._send(json.dumps(error.__dict__))
 
     # Websocket Functions
     def _register_websocket(self, websocket):
@@ -158,15 +164,15 @@ class AutomataClientConnectionPoolHandler:
 # Library Functions
 
 # Will transition to a new state
-async def transition(automata: Automata, target: str):
+async def transition(automata: Automata, target: str, status: EventStatus, data: any = None):
     if automata._states[automata._current_state.name]._targets == None or target in automata._states[automata._current_state.name]._targets:
         automata._current_state = automata._states[target]
-        payload = StateChangePayload(automata._current_state.name , list(automata._states[automata._current_state.name]._events.keys()))
+        payload = StateChangePayload(automata._current_state.name , list(automata._states[automata._current_state.name]._events.keys()), status, data)
         await transmit(automata, payload)
     else:
         raise InvalidStateTransition(automata._current_state, target)
 
-async def transmit(automata: Automata, data: any):
+async def transmit(automata: Automata, data: StateChangePayload | DataPayload):
     jsonPayload = json.dumps(data.__dict__)
     await automata._send(jsonPayload)
 

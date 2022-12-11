@@ -31,15 +31,6 @@ class DuplicateStateError(DuplicateInputIdentifierBaseError):
     def __str__(self):
         return super().__str__() + f" -> tried adding duplicate state {self._state} to machine {self._machine}" 
 
-class InvalidEventPayload(Exception):
-    def __init__(self, state: str, event: str):
-        self._state = state
-        self._event = event 
-
-    def __str__(self):
-        return f"Event {self._event} has no handler defined for the state {self._state}"
-
-
 # Automata Errors
 
 class InvalidStateTransition:

@@ -1,13 +1,18 @@
-from automata import Automata, State, transition, transmit
+import json
+from automata import Automata, State, transition, transmit, EventStatus
 
 logged_out = State('logged_out')
 
-class UserInfo:
-    def __init__(self, token):
+class UserInfo(object):
+    def __init__(self, token: str):
         self.token = token
+class Outer(object):
+    def __init__(self, test, userInfo: UserInfo):
+        self.test = test
+        self.user = userInfo
+
 
 @logged_out.event('log_in')
-async def handler(automata: Automata, data: str):
-    await transition(automata, 'logged_in')
-    u = UserInfo('oi21jeoi21e897dasdu09q2')
-    await transmit(automata, u)
+async def handler(automata: Automata, data):
+    print(data['test'])
+    await transition(automata, 'logged_in', EventStatus.OK, "some data")

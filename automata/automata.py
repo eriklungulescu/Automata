@@ -62,7 +62,7 @@ class Automata:
             self._current_state = state
         self._states[state.name] = state
 
-    async def handler(self, event: str): # TODO: Add input error checking
+    async def handler(self, event: str):
         try:
             data = json.loads(event)
             await self._handler(data["event"], data["data"])
@@ -78,6 +78,7 @@ class Automata:
         try: 
             await self._states[self._current_state.name]._events[event_name]._process_and_handle(self, data)
         except:
+            print(data)
             self._logger.error(f'Event {event_name} does not exist for websocket connection {self._websocket.id}')
             error = DataPayload(EventStatus.InvalidEvent)
             await self._send(json.dumps(error.__dict__))
@@ -96,7 +97,6 @@ class Automata:
 
 
 class AutomataClientConnectionPoolHandler:
-
     def __init__(self, automata: Automata):
         self._AUTOMATA_IMAGE = automata
         self._connection_pool: dict[str, dict[UUID, Automata]] = {}
@@ -156,7 +156,7 @@ class AutomataClientConnectionPoolHandler:
             url = self._uri + ':' + str(self._port) + path
             params = parse_qs(urlsplit(url).query)
         except:
-            self._logger.error("Couldn't parse url params.")
+            self._logger.error("Couldn't parse url params for incoming connection.")
         finally:
             return params
 
@@ -173,6 +173,6 @@ async def transition(automata: Automata, target: str, status: EventStatus, data:
         raise InvalidStateTransition(automata._current_state, target)
 
 async def transmit(automata: Automata, data: StateChangePayload | DataPayload):
-    jsonPayload = json.dumps(data.__dict__)
+    jsonPayload = json.dumps(data.__dict__, indent=4)
     await automata._send(jsonPayload)
 

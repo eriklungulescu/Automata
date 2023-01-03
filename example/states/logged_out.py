@@ -7,12 +7,20 @@ class UserInfo(object):
     def __init__(self, token: str):
         self.token = token
 class Outer(object):
-    def __init__(self, test, userInfo: UserInfo):
+    def __init__(self, test, user: str):
         self.test = test
-        self.user = userInfo
+        self.user = user
 
 
 @logged_out.event('log_in')
 async def handler(automata: Automata, data):
-    print(data['test'])
-    await transition(automata, 'logged_in', EventStatus.OK, "some data")
+    print(data)
+    send = {
+        'test': 'test',
+        'test2': {
+            'inner': 'value',
+            'list': [1,2,3]
+        },
+        'test3': 5
+    }
+    await transition(automata, 'logged_in', EventStatus.OK, send)

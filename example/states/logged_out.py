@@ -24,3 +24,8 @@ async def handler(automata: Automata, data):
         'test3': 5
     }
     await transition(automata, 'logged_in', EventStatus.OK, send)
+
+@logged_out.event('ping')
+async def pong(automata: Automata, data):
+    print('pong')
+    await transmit(automata, EventStatus.OK, 'pong')

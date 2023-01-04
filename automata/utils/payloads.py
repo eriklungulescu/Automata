@@ -12,6 +12,7 @@ class EventStatus(str, Enum):
     Unauthorized = 401
     InvalidEvent = 402
     InvalidPayload = 403
+    ServerRuntimeError = 405
 
 class DataPayload(object):
     def __init__(self, status: EventStatus, data: any = None):

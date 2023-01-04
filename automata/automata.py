@@ -78,7 +78,6 @@ class Automata:
         try: 
             await self._states[self._current_state.name]._events[event_name]._process_and_handle(self, data)
         except:
-            print(data)
             self._logger.error(f'Event {event_name} does not exist for websocket connection {self._websocket.id}')
             error = DataPayload(EventStatus.InvalidEvent)
             await self._send(json.dumps(error.__dict__))

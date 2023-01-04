@@ -84,10 +84,10 @@ class Automata:
     async def _send(self, data: str):
         await self._websocket.send(data)
 
-    def run(self, uri: str, port: int, path: str):
-        self._logger.info(f'Starting Automata Websocket server on {uri}:{port}{path}')
+    def run(self, uri: str, port: int):
+        self._logger.info(f'Starting Automata Websocket server on {uri}:{port}')
         clientPoolHandler = AutomataClientConnectionPoolHandler(self)
-        clientPoolHandler._serve(uri, port, path)
+        clientPoolHandler._serve(uri, port)
 
 
 class AutomataClientConnectionPoolHandler:
@@ -97,8 +97,7 @@ class AutomataClientConnectionPoolHandler:
         self._logger = logging.getLogger(__name__)
         self._num_connections = 0
     
-    def _serve(self, uri: str, port: int, path: str):
-        self._path = path
+    def _serve(self, uri: str, port: int):
         self._uri = uri 
         self._port = port
 
@@ -113,9 +112,6 @@ class AutomataClientConnectionPoolHandler:
             self._logger.debug(f'New connection {websocket.id} -> there are {self._num_connections} active connections')
 
             params = self._parse_path_params(path)
-            if (path != self._path and False): # TODO: add path checker...
-                print(f"Request at {path} doesn't match defined path {self._path}")
-                return
             automata = deepcopy(self._AUTOMATA_IMAGE)
             automata._register_websocket(websocket)
 
@@ -154,14 +150,8 @@ class AutomataClientConnectionPoolHandler:
                         del self._connection_pool[group]
     
     def _parse_path_params(self, path: str) -> dict[str, any]:
-        params = {}
-        try:
-            url = self._uri + ':' + str(self._port) + path
-            params = parse_qs(urlsplit(url).query)
-        except:
-            self._logger.error("Couldn't parse url params for incoming connection.")
-        finally:
-            return params
+        url = self._uri + ':' + str(self._port) + path
+        return parse_qs(urlsplit(url).query)
 
 
 # Library Functions

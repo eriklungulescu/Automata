@@ -7,15 +7,18 @@ test_automata = Automata(
 )
 
 green_state = State(
-    name="green"
+    name="green",
+    targets=["yellow"]
 )
 
 yellow_state = State(
-    name="yellow"
+    name="yellow",
+    targets=["red"]
 )
 
 red_state = State(
-    name="red"
+    name="red",
+    targets=["green"]
 )
 
 @green_state.event('go_yellow')
@@ -57,4 +60,3 @@ class TestValidRuntime(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(test_automata._current_state, red_state)
         await test_automata.handler(' {"event": "go_green", "data": ""}')
         self.assertEqual(test_automata._current_state, green_state)
-

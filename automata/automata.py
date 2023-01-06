@@ -78,7 +78,7 @@ class Automata:
         raise NotImplemented
 
     # Websocket/Http Functions
-    def create_endpoint(self, endpoint: str):
+    def endpoint(self, endpoint: str):
         if endpoint in self._http_endpoints.keys():
             raise DuplicateEndpointError(endpoint)
         

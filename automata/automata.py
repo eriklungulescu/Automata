@@ -1,8 +1,7 @@
-from collections.abc import Callable
-from typing import  Mapping
+from typing import  Coroutine, Mapping, Callable
 from uuid import UUID
 from .utils.payloads import EventPayload, DataPayload, StateChangePayload, EventStatus
-from .utils.errors import DuplicateEventError, DuplicateStateError, InvalidStateTransition, InvalidEvent, InvalidPayload
+from .utils.errors import DuplicateEventError, DuplicateStateError, DuplicateEndpointError, InvalidStateTransition, InvalidEvent, InvalidPayload
 from urllib.parse import urlsplit, parse_qs
 from copy import deepcopy
 import json
@@ -52,6 +51,7 @@ class Automata:
         for state in states:
             self._states[state.name] = state
         self._logger = logging.getLogger(__name__)
+        self._http_endpoints = {}
 
 
     def register_state(self, state: State):
@@ -75,9 +75,22 @@ class Automata:
         await self._states[self._current_state.name]._events[event_name]._process_and_handle(self, data)
 
     async def internal_handler(self, event: EventPayload, group_id: str):
-        pass
+        raise NotImplemented
 
-    # Websocket Functions
+    # Websocket/Http Functions
+    def create_endpoint(self, endpoint: str):
+        if endpoint in self._http_endpoints.keys():
+            raise DuplicateEndpointError(endpoint)
+        
+        def decorator(func: Coroutine):
+            self._http_endpoints[endpoint] = func 
+        return decorator
+
+    async def _handle_http_endpoints(self, path: str, request_headers: str):
+        self._logger.debug(f"Received HTTP request at {path}")
+        if path in self._http_endpoints.keys():
+            return await self._http_endpoints[path](request_headers)
+
     def _register_websocket(self, websocket):
         self._websocket = websocket
             
@@ -102,7 +115,7 @@ class AutomataClientConnectionPoolHandler:
         self._port = port
 
         async def serve_server():
-            async with websockets.serve(self._manage_client_connections, uri, port):
+            async with websockets.serve(self._manage_client_connections, uri, port, process_request=self._AUTOMATA_IMAGE._handle_http_endpoints):
                 await asyncio.Future() # Runs forever
         asyncio.run(serve_server())
     

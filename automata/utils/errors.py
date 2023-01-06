@@ -34,6 +34,16 @@ class DuplicateStateError(DuplicateInputIdentifierBaseError):
     def __str__(self):
         return super().__str__() + f" -> tried adding duplicate state {self._state} to machine {self._machine}" 
 
+class DuplicateEndpointError(DuplicateInputIdentifierBaseError):
+    """
+        Occurs when we try to create a duplicate endpoint handler
+    """
+    def __init__(self, endpoint: str):
+        self._endpoint = endpoint
+
+    def __str__(self):
+        return super().__str__() + f" -> tried creating duplicate endpoint {self._endpoint}" 
+
 '''
     Client Runtime Errors
     - Errors that occur when a client request is invalid

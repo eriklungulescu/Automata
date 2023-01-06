@@ -1,2 +1,2 @@
 from .payloads import EventPayload, StateChangePayload, DataPayload, EventStatus
-from .errors import DuplicateEventError, DuplicateStateError, InvalidStateTransition, InvalidEvent, InvalidPayload
+from .errors import DuplicateEventError, DuplicateStateError, DuplicateEndpointError, InvalidStateTransition, InvalidEvent, InvalidPayload

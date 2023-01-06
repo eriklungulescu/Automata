@@ -6,7 +6,7 @@ my_machine = Automata(
     name="myMachine",
 )
 
-@my_machine.create_endpoint('/health')
+@my_machine.endpoint('/health')
 async def health_handler(request_headers):
     print(request_headers)
     return HTTPStatus.OK, [], b"OK\n"

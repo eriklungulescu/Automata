@@ -33,7 +33,7 @@ class TestValidAutomataSetup(unittest.TestCase):
             def handler(automata: Automata, data):
                 pass
 
-    def test_create_duplicate_http_endpoint(self):
+    def test_create_duplicate_http_endpoint_should_throw_exception(self):
         with self.assertRaises(DuplicateEndpointError):
             @test_automata.create_endpoint('/health')
             async def some_duplicate_handler(request_header):

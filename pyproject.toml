@@ -2,13 +2,10 @@
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = ["automata"]
-
 [project]
 name = "automata-ws"
-description = "Automata is a lightweight framework that allows users to define a state based websocket connection manager. It provides a unified methodology and doctrine for defining and improving the clarity of websocket communication."
-version = "1.0.0"
+description = "Automata is a lightweight framework that allows users to define a state based websocket connection manager."
+version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.7"
 keywords = ["automata", "websocket", "server", "state machine", "event"]

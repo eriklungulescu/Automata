@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "automata-ws"
+description = "Automata is a lightweight framework that allows users to define a state based websocket connection manager."
+version = "0.1.0"
+readme = "README.md"
+requires-python = ">=3.7"
+keywords = ["automata", "websocket", "server", "state machine", "event"]
+license = {text = "Apache License, Version 2.0"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License"
+]
+dependencies = [
+    "websockets >= 10.4",
+]

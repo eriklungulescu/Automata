@@ -25,8 +25,7 @@ This is a simple example of how you to set up your Automata instance and run you
 * `python version 3.11^`
 
 ### Installation and Setup
-1. Install using PIP `pip install ...` We haven't made the package yet! 
-2. Initialize your Automata (we use app.py)
+1. Initialize your Automata (we use app.py)
   ```python3
   from automata import Automata
   
@@ -34,7 +33,7 @@ This is a simple example of how you to set up your Automata instance and run you
     name="myMachine"
   )
   ```
-3. Create your states and any events (in any directory you want)
+2. Create your states and any events (in any directory you want)
   ```python3
   from automata import State
   
@@ -54,14 +53,14 @@ This is a simple example of how you to set up your Automata instance and run you
     
   #And so on and so on...
   ```
-4. Register states in your machine (back in the file you defined the machine)
+3. Register states in your machine (back in the file you defined the machine)
   ```python3
   my_machine.register_state(red_light) #The first state that is registered will be the initial state for new sessions
   my_machine.register_state(green_light)
   ```
-5. Run the machine
+4. Run the machine
   ```python3
-  my_machine.run('localhost', 8000, '/session')
+  my_machine.run('localhost', 8000)
   ```
 
 

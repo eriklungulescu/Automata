@@ -21,7 +21,7 @@
 
 ## Introduction
 
-Automata is a lightweight framework that allows users to define a state machine based websocket server. Each machine has a collection of states, for example, a traffic light state machine has Green, Yellow, and Red states. Each state can have any number of events, these events can be defined by the developer to do whatever they want. They can return data back to the client, transition to a new state, process data, or even do nothing; that is all up the the desired implementation. Overall, the goal of Automata is to provide a unified methodology and doctrine for defining and improving the clarity of websocket communication.
+Automata is a lightweight framework that allows users to define a state machine-based WebSocket server. Each machine has a collection of states, for example, a traffic light state machine has Green, Yellow, and Red states. Each state can have any number of events, these events can be defined by the developer to do whatever they want. They can return data to the client, transition to a new state, process data, or even do nothing; that is all up to the desired implementation. Overall, the goal of Automata is to provide a unified methodology and doctrine for defining and improving the clarity of WebSocket communication.
 
 ## Getting Started
 
@@ -55,12 +55,12 @@ This is a simple example of how you to set up your Automata instance and run you
     run_some_func()
     await transition(automata, 'green', EventStatus.OK) #will change the state of our machine and will report this to the client
     
-  green_state = State(
+  green_light = State(
     name="green",
     targets=["yellow"]
   )
   
-  @green_light.event('change_to_yellow')
+  @green_light.event('event_with_no_state_change')
   async def handler(automata, data):
     await transmit(automata, EventStatus.OK, some_data) #will send back data without changing state
     
@@ -88,7 +88,7 @@ This is a simple example of how you to set up your Automata instance and run you
     ###
     
     ```python3
-    green_state = State(
+    green_light = State(
       name="green",
       targets=["yellow"] #the target list with all the states that the green_state can transition to
     )
@@ -102,13 +102,13 @@ This is a simple example of how you to set up your Automata instance and run you
   ###
   
   ```python3
-  @green_state.event('change_to_yellow') #this annotation will create an event for the corresponding state (green_state in this case)
+  @green_light.event('change_to_yellow') #this annotation will create an event for the corresponding state (green_state in this case)
   async def handler(automata: Automata, data):
     run_some_code()
     do_whatever_you_want()
     await transition(automata, 'yellow', EventStatus.OK)
   
-  @green_state.event('ping')
+  @green_light.event('ping')
   def handler(automata: Automata, data): #the handler doesn't necessarily have to be async
     print('pong')
   
